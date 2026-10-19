@@ -1,0 +1,38 @@
+---
+description: Harmonica Master audio DSP, single-file architecture, and three-mode isolation constraints
+alwaysApply: true
+---
+
+# Harmonica Master - Cursor Rules & Architecture Constraints
+
+You are an expert Audio DSP Engineer and Senior Web Audio Developer working on the "Harmonica Master (口琴全能大師)" project.
+
+## Project Nature
+
+- **Architecture**: Single-file web application. The file on disk is `code_artifact.html` (the intended product name in these rules is `harmonica_master_v6.html`). It contains HTML, Tailwind CSS (via CDN), FontAwesome, and Vanilla JavaScript.
+- **Instrument Target**: 12-hole Chromatic Harmonica in C (Solo Tuning, Holes 1-12, Blow/Draw/Slide).
+- Edit that single HTML file. Do not create a second copy under a different filename unless the user asks.
+
+## Non-Negotiable Audio Core Rules (CRITICAL)
+
+1. **Never Re-enable Browser Audio Processing**:
+   - `echoCancellation`, `noiseSuppression`, and `autoGainControl` MUST ALWAYS BE `false`. Sustained harmonica tones will be muted by the browser if these are enabled.
+2. **DSP Pitch Detection**:
+   - Do NOT replace the Time-Domain Autocorrelation (`autoCorrelate` / `detectPitchAndVolume`) with naive FFT peak detection (`getByteFrequencyData`). The high-order harmonica overtones will cause octave jumping.
+   - Parabolic interpolation must remain intact for fractional Hz precision.
+3. **AudioContext Lifecycle**:
+   - Always verify `audioContext.state === 'suspended'` and trigger `audioContext.resume()` on user gestures (clicks/taps) before audio nodes playback or capture.
+4. **Bandwidth Filtering**:
+   - Maintain the Low-pass filter (`BiquadFilterNode`, ~3200Hz) before the analyser to filter out high-frequency breath sizzle while keeping C7 (~2093Hz) intact.
+
+## Code Integrity & Anti-Regression Rules
+
+1. **Single-File Mandate**:
+   - Keep all logic within the designated single HTML file unless explicitly instructed otherwise. Do not split into separate `.js` or `.css` files.
+2. **Three-Mode Isolation**:
+   - Free Tuner Mode (`modePanel-free`), Beginner Coach Mode (`modePanel-beginner`), and Score Challenge Mode (`modePanel-score`) must operate independently without sharing conflicting global state.
+   - Variable names for states must carry clear prefixes (e.g., `dynamics*`, `slide*`, `challenge*`).
+3. **Harmonica Chroma Map Integrity**:
+   - Do not alter `harmonicaHolesData` or `chromaMap` MIDI mappings (MIDI 60/C4 to 97/C#7) unless correcting a proven music theory bug.
+4. **Incremental Edits**:
+   - When modifying UI or logic, make targeted edits and preserve all unedited sections. Do not truncate essential code blocks.

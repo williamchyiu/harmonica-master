@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>口琴全能大師 v6 - 自由調音 | 初學者特訓 | 自由入譜</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f3f4f6;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            touch-action: manipulation;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        /* 口琴孔位發光特效 */
+        .slot-active-blow {
+            background: linear-gradient(180deg, #2563eb, #3b82f6) !important;
+            color: #ffffff !important;
+            border-color: #93c5fd !important;
+            box-shadow: 0 0 14px rgba(59, 130, 246, 0.9);
+            transform: scale(1.06);
+            z-index: 10;
+        }
+        .slot-active-draw {
+            background: linear-gradient(180deg, #059669, #10b981) !important;
+            color: #ffffff !important;
+            border-color: #6ee7b7 !important;
+            box-shadow: 0 0 14px rgba(16, 185, 129, 0.9);
+            transform: scale(1.06);
+            z-index: 10;
+        }
+        .slot-active-slide {
+            background: linear-gradient(135deg, #d97706, #f59e0b) !important;
+            color: #111827 !important;
+            border-color: #fde68a !important;
+            box-shadow: 0 0 16px rgba(245, 158, 11, 0.95);
+            font-weight: 900 !important;
+        }
+        .hole-col-active {
+            background-color: rgba(59, 130, 246, 0.12);
+            border-radius: 8px;
+        }
+        @keyframes pulseMic {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        }
+        .mic-pulse {
+            animation: pulseMic 1.8s infinite;
+        }
+        /* 自訂捲軸 */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-2 sm:p-4 pb-12">
+
+    <div class="w-full max-w-2xl bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-3 sm:p-5 flex flex-col gap-4">
+        
+        <!-- 頂部狀態與超靈敏麥克風控制台 -->
+        <div class="bg-gray-800/90 border border-gray-700 rounded-xl p-3 flex flex-col gap-2.5">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                        <i class="fa-solid fa-sliders text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-base sm:text-lg font-extrabold text-white tracking-tight flex items-center gap-2">
+                            口琴全能大師 <span class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-semibold">v6 旗艦版</span>
+                        </h1>
+                        <p id="micStatusText" class="text-[11px] text-amber-400 font-medium">
+                            ⚠️ 請點擊右側「啟動收音」，或直接點擊下方口琴孔位試聽標準音
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button id="demoToneBtn" class="bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold py-2 px-3 rounded-xl border border-gray-600 transition-all active:scale-95 flex items-center gap-1.5" title="播放測試音並模擬吹奏">
+                        <i class="fa-solid fa-volume-high text-blue-400"></i> <span id="demoToneLabel">試音(442Hz)</span>
+                    </button>
+                    <button id="startMicBtn" class="mic-pulse bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-lg active:scale-95 flex items-center gap-1.5">
+                        <i class="fa-solid fa-microphone"></i> <span>啟動收音</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 麥克風即時聲波與靈敏度調節 + 440Hz~443Hz 專屬調音器校準 -->
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-gray-900/80 px-3 py-2 rounded-lg border border-gray-800 text-xs">
+                <div class="sm:col-span-4 flex items-center gap-2">
+                    <span class="text-gray-400 whitespace-nowrap text-[11px]"><i class="fa-solid fa-ear-listen text-blue-400 mr-1"></i>靈敏度:</span>
+                    <input type="range" id="micGainSlider" min="1" max="8" step="0.5" value="3.5" class="w-full accent-blue-500 h-1.5">
+                    <span id="micGainDisplay" class="font-mono font-bold text-blue-400 w-8 text-right text-[11px]">3.5x</span>
+                </div>
+                <div class="sm:col-span-5 flex flex-col gap-1 bg-gray-950/80 px-2.5 py-1.5 rounded-lg border border-blue-900/50">
+                    <div class="flex items-center justify-between gap-1">
+                        <span class="text-blue-300 font-bold whitespace-nowrap text-[11px]"><i class="fa-solid fa-gauge-high mr-1"></i>Tuner A4 (440~443Hz):</span>
+                        <span id="a4Display" class="font-mono font-extrabold text-emerald-400 text-xs">442 Hz</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <input type="range" id="a4Slider" min="440" max="443" step="0.5" value="442" class="w-full accent-emerald-500 h-1.5 cursor-pointer">
+                        <div class="flex gap-1 shrink-0">
+                            <button onclick="setA4Frequency(440)" id="a4Btn-440" class="a4-preset-btn px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700">440</button>
+                            <button onclick="setA4Frequency(441)" id="a4Btn-441" class="a4-preset-btn px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700">441</button>
+                            <button onclick="setA4Frequency(442)" id="a4Btn-442" class="a4-preset-btn px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-600 text-white font-bold border border-emerald-400">442</button>
+                            <button onclick="setA4Frequency(443)" id="a4Btn-443" class="a4-preset-btn px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700">443</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="sm:col-span-3 flex items-center justify-between sm:justify-end gap-1">
+                    <span class="text-gray-400 text-[11px]">調性:</span>
+                    <select id="keySelector" class="bg-gray-800 text-white text-[11px] rounded px-1.5 py-1 border border-gray-700 focus:outline-none">
+                        <option value="0" selected>C 調</option>
+                        <option value="2">D 調</option>
+                        <option value="5">F 調</option>
+                        <option value="7">G 調</option>
+                        <option value="9">A 調</option>
+                        <option value="10">B♭ 調</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 即時氣流聲波監視條 (只要有聲音就一定會動) -->
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] text-gray-400 w-16 whitespace-nowrap">氣流強度:</span>
+                <div class="flex-1 bg-gray-950 h-3 rounded-full overflow-hidden border border-gray-800 relative p-0.5">
+                    <div id="liveVolumeBar" class="h-full bg-gradient-to-r from-blue-500 via-emerald-400 to-amber-500 rounded-full transition-all duration-75" style="width: 0%"></div>
+                </div>
+                <span id="dbDisplay" class="text-[10px] font-mono text-gray-400 w-14 text-right">待機中</span>
+            </div>
+        </div>
+
+        <!-- 核心即時音準、音域判斷與指針儀表板 (所有模式共用) -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-gray-800/60 border border-gray-700/80 rounded-xl p-3 items-center">
+            
+            <!-- 左側：半圓指針與即時音高波紋 Canvas -->
+            <div class="sm:col-span-5 flex flex-col items-center">
+                <div class="w-full max-w-[230px] relative">
+                    <canvas id="tunerCanvas" width="240" height="125"></canvas>
+                </div>
+                <div class="flex justify-between w-full max-w-[210px] text-[10px] text-gray-500 font-mono -mt-1">
+                    <span>-50c (偏低)</span>
+                    <span class="text-emerald-400 font-bold">0 (準確)</span>
+                    <span>+50c (偏高)</span>
+                </div>
+            </div>
+
+            <!-- 右側：即時音名、唱名、孔位與「音域是否準確」診斷面板 -->
+            <div class="sm:col-span-7 flex flex-col justify-between gap-2 bg-gray-900/90 p-3 rounded-xl border border-gray-800">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-[10px] text-gray-400 uppercase tracking-wider block">目前偵測音高 / 簡譜唱名</span>
+                        <div class="flex items-baseline gap-2 mt-0.5">
+                            <span id="mainNoteDisplay" class="text-4xl sm:text-5xl font-black text-gray-500 tracking-tight">--</span>
+                            <span id="mainSolfegeDisplay" class="text-xl sm:text-2xl font-extrabold text-gray-500">--</span>
+                            <span id="mainJianpuDisplay" class="text-sm font-mono bg-gray-800 text-blue-300 px-2 py-0.5 rounded border border-gray-700">簡譜: -</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm font-mono text-gray-300"><span id="mainFreqDisplay" class="font-bold text-white">0.0</span> Hz</div>
+                        <div id="standardFreqRef" class="text-[10px] font-mono text-blue-300">標準音: -- Hz (A4=442)</div>
+                        <div id="mainCentsDisplay" class="text-xs font-mono font-bold text-gray-500 mt-0.5">0 cents</div>
+                    </div>
+                </div>
+
+                <!-- 音域與準確度即時顯示卡 -->
+                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800">
+                    <div class="bg-gray-800/80 rounded-lg p-2 border border-gray-700/60">
+                        <span class="text-[10px] text-gray-400 block">📍 所屬音域與孔位</span>
+                        <div id="registerBadge" class="text-xs font-bold text-gray-300 mt-0.5 flex items-center gap-1">
+                            <span>等待吹奏...</span>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800/80 rounded-lg p-2 border border-gray-700/60">
+                        <span class="text-[10px] text-gray-400 block">🎯 音準與氣息診斷</span>
+                        <div id="accuracyDiagnosis" class="text-xs font-bold text-gray-400 mt-0.5">
+                            請吹響口琴測試
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 12孔半音階口琴即時位圖 (永遠顯示，不跟譜也會亮！支援點擊發聲) -->
+        <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 shadow-inner">
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-blue-400"><i class="fa-solid fa-table-cells mr-1"></i>12孔半音階口琴即時位圖 (Solo Tuning)</span>
+                    <span class="text-[10px] text-gray-400 hidden sm:inline">— 吹奏自動亮燈，點擊格子可聽標準音</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <!-- 目標提示燈 (在練習或跟譜時顯示) -->
+                    <span class="text-[10px] text-gray-400 flex items-center gap-1">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span>吹氣
+                        <span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block ml-1"></span>吸氣
+                    </span>
+                    <div id="slideIndicatorBtn" class="px-2.5 py-0.5 rounded-md bg-gray-800 border border-gray-700 text-gray-400 text-[11px] font-bold transition-all duration-150">
+                        🔘 按鍵 (Slide): 未按
+                    </div>
+                </div>
+            </div>
+
+            <!-- 音域分區標籤 -->
+            <div class="grid grid-cols-12 gap-1 text-[10px] text-center font-semibold mb-1 pl-6">
+                <div class="col-span-4 bg-indigo-950/60 text-indigo-300 rounded py-0.5 border border-indigo-800/40">低音區 (1~4孔)</div>
+                <div class="col-span-4 bg-blue-950/60 text-blue-300 rounded py-0.5 border border-blue-800/40">中音區 (5~8孔)</div>
+                <div class="col-span-4 bg-purple-950/60 text-purple-300 rounded py-0.5 border border-purple-800/40">高音區 (9~12孔)</div>
+            </div>
+
+            <!-- 12孔位圖網格 (含不按鍵吹、按鍵吹、孔號、不按鍵吸、按鍵吸) -->
+            <div class="flex items-center">
+                <div class="flex flex-col justify-between text-[9px] text-gray-400 font-bold w-6 pr-1 text-right space-y-1">
+                    <span class="h-5 flex items-center justify-end text-amber-400" title="按鍵吹氣">吹#</span>
+                    <span class="h-6 flex items-center justify-end text-blue-400" title="自然吹氣">吹</span>
+                    <span class="h-4 flex items-center justify-end text-gray-500">孔</span>
+                    <span class="h-6 flex items-center justify-end text-emerald-400" title="自然吸氣">吸</span>
+                    <span class="h-5 flex items-center justify-end text-amber-400" title="按鍵吸氣">吸#</span>
+                </div>
+                <div id="harmonicaGrid" class="flex-1 grid grid-cols-12 gap-1">
+                    <!-- 由 JS 動態生成 12 孔完整互動位圖 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 三大功能模式切換 Tabs -->
+        <div class="grid grid-cols-3 gap-1.5 bg-gray-800 p-1.5 rounded-xl border border-gray-700">
+            <button onclick="switchMainMode('free')" id="tabBtn-free" class="mode-tab-btn py-2 px-2 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-600 text-white shadow">
+                <i class="fa-solid fa-compass mr-1"></i>1. 自由吹奏調音
+            </button>
+            <button onclick="switchMainMode('beginner')" id="tabBtn-beginner" class="mode-tab-btn py-2 px-2 rounded-lg text-xs sm:text-sm font-bold transition-all text-gray-300 hover:bg-gray-700">
+                <i class="fa-solid fa-graduation-cap mr-1"></i>2. 初學者特訓
+            </button>
+            <button onclick="switchMainMode('score')" id="tabBtn-score" class="mode-tab-btn py-2 px-2 rounded-lg text-xs sm:text-sm font-bold transition-all text-gray-300 hover:bg-gray-700">
+                <i class="fa-solid fa-music mr-1"></i>3. 自由入譜闖關
+            </button>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- 模式 1：自由吹奏與音域準確度分析 (預設開啟，不跟譜) -->
+        <!-- ===================================================================== -->
+        <div id="modePanel-free" class="flex flex-col gap-3 bg-gray-800/40 border border-gray-800 rounded-xl p-3 sm:p-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-sm font-bold text-blue-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-wave-square"></i> 自由吹奏與各音域準確度統計
+                    </h2>
+                    <p class="text-[11px] text-gray-400">不用看譜！隨意吹奏任何孔位，系統會自動幫你檢查低、中、高音域的音準穩定度。</p>
+                </div>
+                <button id="resetStatsBtn" class="text-[11px] bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 py-1 rounded-lg border border-gray-600">
+                    重置統計
+                </button>
+            </div>
+
+            <!-- 三大音域準確度即時儀表 -->
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-gray-900/90 border border-indigo-900/60 rounded-xl p-2.5">
+                    <span class="text-[11px] text-indigo-300 font-bold block">低音域 (1~4孔)</span>
+                    <span id="lowOctaveAcc" class="text-xl font-black text-white mt-1 block">--%</span>
+                    <span id="lowOctaveStatus" class="text-[10px] text-gray-500 block mt-0.5">尚未吹奏</span>
+                </div>
+                <div class="bg-gray-900/90 border border-blue-900/60 rounded-xl p-2.5">
+                    <span class="text-[11px] text-blue-300 font-bold block">中音域 (5~8孔)</span>
+                    <span id="midOctaveAcc" class="text-xl font-black text-white mt-1 block">--%</span>
+                    <span id="midOctaveStatus" class="text-[10px] text-gray-500 block mt-0.5">尚未吹奏</span>
+                </div>
+                <div class="bg-gray-900/90 border border-purple-900/60 rounded-xl p-2.5">
+                    <span class="text-[11px] text-purple-300 font-bold block">高音域 (9~12孔)</span>
+                    <span id="highOctaveAcc" class="text-xl font-black text-white mt-1 block">--%</span>
+                    <span id="highOctaveStatus" class="text-[10px] text-gray-500 block mt-0.5">尚未吹奏</span>
+                </div>
+            </div>
+
+            <!-- 即時音準軌跡圖 (Pitch Contour Graph) -->
+            <div class="bg-gray-950 border border-gray-800 rounded-xl p-2">
+                <div class="flex justify-between text-[10px] text-gray-400 mb-1 px-1">
+                    <span>📈 即時音準穩定度軌跡 (綠線為完美 0 Cent 基準線)</span>
+                    <span id="freeStabilityText" class="text-emerald-400 font-mono">長音穩定度: --</span>
+                </div>
+                <canvas id="freePitchGraph" width="560" height="80"></canvas>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- 模式 2：初學者學習吹口琴特訓營 (大聲程度 / 按鍵準確 / 節奏感 / 震音) -->
+        <!-- ===================================================================== -->
+        <div id="modePanel-beginner" class="hidden flex-col gap-3 bg-gray-800/40 border border-gray-800 rounded-xl p-3 sm:p-4">
+            
+            <!-- 4個特訓子項目切換 -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                <button onclick="switchBeginnerDrill('dynamics')" id="drillBtn-dynamics" class="drill-btn py-2 px-2 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow flex items-center justify-center gap-1">
+                    🔊 1. 大聲程度控制
+                </button>
+                <button onclick="switchBeginnerDrill('slide')" id="drillBtn-slide" class="drill-btn py-2 px-2 rounded-lg text-xs font-bold bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700 flex items-center justify-center gap-1">
+                    🔘 2. 按鍵準確度
+                </button>
+                <button onclick="switchBeginnerDrill('rhythm')" id="drillBtn-rhythm" class="drill-btn py-2 px-2 rounded-lg text-xs font-bold bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700 flex items-center justify-center gap-1">
+                    🥁 3. 節奏感拍子
+                </button>
+                <button onclick="switchBeginnerDrill('vibrato')" id="drillBtn-vibrato" class="drill-btn py-2 px-2 rounded-lg text-xs font-bold bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700 flex items-center justify-center gap-1">
+                    〰️ 4. 震音與抖音
+                </button>
+            </div>
+
+            <!-- 特訓 A：大聲程度與氣流穩定度 (Dynamics & Volume Coach) -->
+            <div id="drillPanel-dynamics" class="flex flex-col gap-3 bg-gray-900 p-3 rounded-xl border border-gray-700">
+                <div class="flex flex-wrap justify-between items-center gap-2">
+                    <div>
+                        <h3 class="text-xs sm:text-sm font-bold text-emerald-400">🔊 大聲程度與強弱音控制 (Dynamics Coach)</h3>
+                        <p class="text-[11px] text-gray-400">初學者用力吹時容易「壓音走音」，輕吹時容易「斷氣」。請選擇目標力度並維持在綠色區間！</p>
+                    </div>
+                    <select id="dynamicsTargetSelect" class="bg-gray-800 text-white text-xs rounded-lg px-2.5 py-1.5 border border-gray-600 font-semibold">
+                        <option value="p">目標：輕柔弱音 (p / 15%~35%)</option>
+                        <option value="mf" selected>目標：標準中音 (mf / 35%~65%)</option>
+                        <option value="f">目標：飽滿強音 (f / 65%~90%)</option>
+                    </select>
+                </div>
+
+                <!-- 大聲程度量表與目標框 -->
+                <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 flex flex-col gap-2">
+                    <div class="flex justify-between text-xs font-bold">
+                        <span id="dynamicsLevelLabel" class="text-gray-400">目前音量: 待機中</span>
+                        <span id="dynamicsHoldScore" class="text-emerald-400 font-mono">穩定達標率: 0%</span>
+                    </div>
+                    <div class="w-full h-7 bg-gray-800 rounded-lg relative overflow-hidden border border-gray-700">
+                        <!-- 目標綠色安全區 -->
+                        <div id="dynamicsTargetZone" class="absolute top-0 bottom-0 bg-emerald-500/25 border-x-2 border-emerald-400 z-10 flex items-center justify-center text-[10px] font-bold text-emerald-200" style="left: 35%; width: 30%;">
+                            目標力度區
+                        </div>
+                        <!-- 玩家即時音量條 -->
+                        <div id="dynamicsUserBar" class="h-full bg-blue-500 transition-all duration-75" style="width: 0%;"></div>
+                    </div>
+                    <p id="dynamicsCoachTip" class="text-xs text-amber-300 font-medium text-center mt-1">
+                        💡 隨意吹一個長音，把音量控制在「綠色框框」內，同時注意上方音準不要偏掉！
+                    </p>
+                </div>
+            </div>
+
+            <!-- 特訓 B：半音階按鍵準確度 (Slide Button Accuracy Coach) -->
+            <div id="drillPanel-slide" class="hidden flex-col gap-3 bg-gray-900 p-3 rounded-xl border border-gray-700">
+                <div class="flex flex-wrap justify-between items-center gap-2">
+                    <div>
+                        <h3 class="text-xs sm:text-sm font-bold text-amber-400">🔘 半音階按鍵 (Slide) 準確度與漏氣檢測</h3>
+                        <p class="text-[11px] text-gray-400">練習同孔「不按鍵 ➔ 按鍵到底」切換。系統會檢測你推鍵是否果斷、有無半按漏氣或音準偏低。</p>
+                    </div>
+                    <select id="slideDrillSelect" class="bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 border border-gray-600 font-semibold">
+                        <option value="60">練習 1：第5孔吹 C5 ➔ 按鍵 C♯5</option>
+                        <option value="62">練習 2：第5孔吸 D5 ➔ 按鍵 E♭5</option>
+                        <option value="67">練習 3：第3孔吹 G4 ➔ 按鍵 G♯4</option>
+                        <option value="65">練習 4：第2孔吸 F4 ➔ 按鍵 F♯4</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-center my-1">
+                    <div id="slideStep1Box" class="bg-gray-800 border-2 border-blue-500 rounded-xl p-3 flex flex-col items-center">
+                        <span class="text-[10px] text-blue-300 font-bold">步驟 1：不按鍵 (Natural)</span>
+                        <span id="slideBaseNoteText" class="text-2xl font-black text-white my-1">C5 (5孔吹)</span>
+                        <span id="slideStep1Status" class="text-[11px] text-gray-400">請先吹響基準音...</span>
+                    </div>
+                    <div id="slideStep2Box" class="bg-gray-800 border-2 border-gray-700 rounded-xl p-3 flex flex-col items-center">
+                        <span class="text-[10px] text-amber-300 font-bold">步驟 2：推按鍵到底 (+Slide)</span>
+                        <span id="slideSharpNoteText" class="text-2xl font-black text-white my-1">C♯5 (5孔吹+按)</span>
+                        <span id="slideStep2Status" class="text-[11px] text-gray-400">等待切換...</span>
+                    </div>
+                </div>
+
+                <div class="bg-gray-950 p-2.5 rounded-lg border border-gray-800 flex justify-between items-center text-xs">
+                    <span id="slideFeedbackMsg" class="text-gray-300 font-semibold">👉 請先吹響左側的「不按鍵」音符，再迅速按下按鍵！</span>
+                    <span id="slideSuccessCount" class="text-amber-400 font-mono font-bold whitespace-nowrap ml-2">完美推鍵: 0 次</span>
+                </div>
+            </div>
+
+            <!-- 特訓 C：節奏感與拍子訓練 (Rhythm & Attack Trainer) -->
+            <div id="drillPanel-rhythm" class="hidden flex-col gap-3 bg-gray-900 p-3 rounded-xl border border-gray-700">
+                <div class="flex flex-wrap justify-between items-center gap-2">
+                    <div>
+                        <h3 class="text-xs sm:text-sm font-bold text-blue-400">🥁 節奏感與卡拍訓練 (Rhythm & Timing)</h3>
+                        <p class="text-[11px] text-gray-400">開啟節拍器，跟著 1-2-3-4 每拍「斷音起吹 (Tu-Tu-Tu-Tu)」，系統會測量你的起音毫秒誤差！</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="rhythmToggleBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow">
+                            ▶️ 啟動節拍訓練
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4拍視覺燈號 -->
+                <div class="grid grid-cols-4 gap-2 my-1">
+                    <div id="beatBox-0" class="bg-gray-800 border border-gray-700 rounded-xl py-3 text-center font-black text-lg text-gray-500 transition-all">1</div>
+                    <div id="beatBox-1" class="bg-gray-800 border border-gray-700 rounded-xl py-3 text-center font-black text-lg text-gray-500 transition-all">2</div>
+                    <div id="beatBox-2" class="bg-gray-800 border border-gray-700 rounded-xl py-3 text-center font-black text-lg text-gray-500 transition-all">3</div>
+                    <div id="beatBox-3" class="bg-gray-800 border border-gray-700 rounded-xl py-3 text-center font-black text-lg text-gray-500 transition-all">4</div>
+                </div>
+
+                <div class="flex justify-between items-center bg-gray-950 p-2.5 rounded-lg border border-gray-800 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-400">速度 BPM:</span>
+                        <input type="range" id="rhythmBpmSlider" min="50" max="140" value="80" class="w-24 accent-blue-500 h-1.5">
+                        <span id="rhythmBpmVal" class="font-mono font-bold text-blue-400">80</span>
+                    </div>
+                    <div id="rhythmJudgeText" class="font-bold text-gray-400">等待每拍吹氣起音...</div>
+                    <div id="rhythmAccText" class="font-mono text-emerald-400 font-bold">節奏準確度: --%</div>
+                </div>
+            </div>
+
+            <!-- 特訓 D：震音與抖音觀測器 (Vibrato & Tremolo Analyzer) -->
+            <div id="drillPanel-vibrato" class="hidden flex-col gap-3 bg-gray-900 p-3 rounded-xl border border-gray-700">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-xs sm:text-sm font-bold text-purple-400">〰️ 震音與抖音即時波形儀 (Vibrato / Tremolo)</h3>
+                        <p class="text-[11px] text-gray-400">吹出一個長音並做「手震音 (Wah-Wah)」或「喉/腹震音」。漂亮的震音會在下方畫出規律的波浪（理想速度為 4~7 Hz）！</p>
+                    </div>
+                </div>
+
+                <div class="bg-gray-950 border border-gray-800 rounded-xl p-2">
+                    <canvas id="vibratoCanvas" width="560" height="100"></canvas>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div class="bg-gray-800 p-2 rounded-lg border border-gray-700">
+                        <span class="text-[10px] text-gray-400 block">震音頻率 (Speed)</span>
+                        <span id="vibRateDisplay" class="text-base font-black text-purple-300 font-mono">0.0 Hz</span>
+                    </div>
+                    <div class="bg-gray-800 p-2 rounded-lg border border-gray-700">
+                        <span class="text-[10px] text-gray-400 block">音高/氣流波動深度</span>
+                        <span id="vibDepthDisplay" class="text-base font-black text-blue-300 font-mono">0 cents</span>
+                    </div>
+                    <div class="bg-gray-800 p-2 rounded-lg border border-gray-700">
+                        <span class="text-[10px] text-gray-400 block">震音品質診斷</span>
+                        <span id="vibQualityDisplay" class="text-xs font-bold text-gray-400 mt-1 block">請吹長音並震音</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- 模式 3：自由入譜與闖關評分系統 (點選入譜 + 自由文字 + 不卡關挑戰) -->
+        <!-- ===================================================================== -->
+        <div id="modePanel-score" class="hidden flex-col gap-3 bg-gray-800/40 border border-gray-800 rounded-xl p-3 sm:p-4">
+            
+            <!-- 曲目選擇與寬容度設定 -->
+            <div class="flex flex-wrap justify-between items-center gap-2 pb-2 border-b border-gray-700">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-blue-300">🎼 選擇曲譜:</span>
+                    <select id="songSelector" class="bg-gray-900 text-white text-xs rounded-lg px-2.5 py-1.5 border border-gray-600 font-semibold">
+                        <option value="twinkle">小星星 (初學必練 1155665)</option>
+                        <option value="scale">C大調音階 (12345671̇)</option>
+                        <option value="laputa" selected>天空之城 (前奏經典)</option>
+                        <option value="chromatic_run">半音階推鍵練習 (C C# D D# E)</option>
+                        <option value="custom">📝 我的自由輸入樂譜</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-3 text-xs">
+                    <label class="flex items-center gap-1 cursor-pointer text-emerald-300 font-semibold" title="勾選後只要唱名對(例如吹對Do，不論高低八度)都算過關！">
+                        <input type="checkbox" id="ignoreOctaveToggle" checked class="accent-emerald-500">
+                        <span>新手寬鬆模式 (忽略八度)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 🎹 自由入譜工作台 (支援點選按鈕入譜 + 文字自由輸入) -->
+            <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-amber-400"><i class="fa-solid fa-keyboard mr-1"></i>自由入譜工作台 (點選音符或直接輸入簡譜)</span>
+                    <div class="flex gap-1.5">
+                        <button id="OctaveBtn-low" onclick="setEditorOctave(-12)" class="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-600">低音 (.)</button>
+                        <button id="OctaveBtn-mid" onclick="setEditorOctave(0)" class="text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white font-bold">中音</button>
+                        <button id="OctaveBtn-high" onclick="setEditorOctave(12)" class="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-600">高音 (')</button>
+                        <button id="SharpToggleBtn" onclick="toggleEditorSharp()" class="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-amber-400 border border-amber-600/50 font-bold">#升半音: 關</button>
+                    </div>
+                </div>
+
+                <!-- 一鍵點選簡譜按鈕列 -->
+                <div class="grid grid-cols-9 gap-1">
+                    <button onclick="appendQuickNote('1')" class="bg-gray-800 hover:bg-blue-600 text-white font-bold py-1.5 rounded text-xs border border-gray-700">1 (Do)</button>
+                    <button onclick="appendQuickNote('2')" class="bg-gray-800 hover:bg-blue-600 text-white font-bold py-1.5 rounded text-xs border border-gray-700">2 (Re)</button>
+                    <button onclick="appendQuickNote('3')" class="bg-gray-800 hover:bg-blue-600 text-white font-bold py-1.5 rounded text-xs border border-gray-700">3 (Mi)</button>
+                    <button onclick="appendQuickNote('4')" class="bg-gray-800 hover:bg-blue-600 text-white font-bold py-1.5 rounded text-xs border border-gray-700">4 (Fa)</button>
+                    <button onclick="appendQuickNote('5')" class="bg-gray-800 hover:bg-blue-600 text-white font-bold py-1.5 rounded text-xs border border-gray-700">5 (Sol)</button>
+                    <button onclick="appendQuickNote('6')" class="bg-gray-800 hover:bg-blue-600 text-white font-bold py-1.5 rounded text-xs border border-gray-700">6 (La)</button>
+                    <button onclick="appendQuickNote('7')" class="bg-gray-800 hover:bg-blue-600 text-white font-bold py-1.5 rounded text-xs border border-gray-700">7 (Ti)</button>
+                    <button onclick="backspaceScoreInput()" class="bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold py-1.5 rounded text-xs">⌫ 退格</button>
+                    <button onclick="clearScoreInput()" class="bg-red-900/60 hover:bg-red-700 text-red-200 font-bold py-1.5 rounded text-xs">清空</button>
+                </div>
+
+                <!-- 自由文字樂譜輸入框 -->
+                <div class="flex gap-2">
+                    <input type="text" id="customScoreInput" value="6 7 1' 7 1' 3' 7 3 6 5 6 1' 5" placeholder="支援簡譜格式：低音加. (如 .5) / 高音加' (如 1') / 半音加# (如 #4) 或 C4 D4 G4" class="flex-1 bg-gray-950 border border-gray-700 text-white text-xs px-3 py-2 rounded-lg font-mono focus:outline-none focus:border-blue-500">
+                    <button id="applyCustomScoreBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow whitespace-nowrap">
+                        ✅ 載入並開始
+                    </button>
+                </div>
+                <div id="customScoreFeedback" class="text-[11px] text-gray-400">
+                    💡 語法提示：輸入 <code class="text-blue-300">1 2 3</code> 為中音；<code class="text-blue-300">1'</code> 為高音；<code class="text-blue-300">.6</code> 為低音；<code class="text-amber-300">#1</code> 為按鍵半音。
+                </div>
+            </div>
+
+            <!-- 樂譜全覽時間軸 (可點擊任意音符跳轉) -->
+            <div class="bg-gray-950 border border-gray-800 rounded-xl p-2.5">
+                <div class="flex justify-between items-center mb-1.5">
+                    <span class="text-[11px] text-gray-400 font-semibold">📜 樂譜進度預覽 (點擊任意音符可直接跳到該處練習):</span>
+                    <span id="scoreProgressLabel" class="text-xs font-mono font-bold text-blue-400">進度: 1 / 13</span>
+                </div>
+                <div id="scoreRibbonContainer" class="flex gap-1.5 overflow-x-auto pb-1.5">
+                    <!-- JS 動態生成樂譜音符卡片 -->
+                </div>
+            </div>
+
+            <!-- 闖關進行中主畫面 -->
+            <div id="challengeActiveArea" class="bg-gray-900 border border-blue-900/70 rounded-xl p-3 flex flex-col items-center">
+                <div class="flex justify-between items-center w-full text-xs mb-2">
+                    <div class="flex items-center gap-3">
+                        <span id="gameScoreDisplay" class="text-gray-300 font-bold">已完成: 0</span>
+                        <span id="gameComboDisplay" class="text-amber-400 font-bold">Combo: 0</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="playTargetToneBtn" class="bg-gray-800 hover:bg-gray-700 text-blue-300 text-[11px] px-2.5 py-1 rounded border border-gray-700">
+                            🔊 聽此音示範
+                        </button>
+                        <button id="skipNoteBtn" class="bg-gray-800 hover:bg-gray-700 text-gray-300 text-[11px] px-2.5 py-1 rounded border border-gray-700">
+                            ⏭️ 跳過此音
+                        </button>
+                        <button id="restartScoreBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold px-3 py-1 rounded">
+                            🔄 重新開始
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 目標音符與下一個音符 -->
+                <div class="flex items-center justify-center gap-5 w-full my-2">
+                    <div id="targetNoteCard" class="w-32 h-28 bg-gray-800 border-2 border-blue-500 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden shadow-lg">
+                        <span class="text-[10px] text-blue-300 font-semibold z-10">目前目標</span>
+                        <div class="flex items-baseline gap-1 z-10">
+                            <span id="targetNoteName" class="text-3xl font-black text-white">A4</span>
+                            <span id="targetNoteSolfege" class="text-sm font-bold text-emerald-300">(La)</span>
+                        </div>
+                        <span id="targetHoleHint" class="text-xs text-amber-300 font-extrabold z-10 mt-1 bg-gray-900/80 px-2 py-0.5 rounded">3孔 吸</span>
+                        <div id="targetHoldBar" class="absolute bottom-0 left-0 w-full bg-emerald-500/35 h-0 transition-all duration-75"></div>
+                    </div>
+
+                    <i class="fa-solid fa-angles-right text-gray-600 text-xl"></i>
+
+                    <div class="w-24 h-20 bg-gray-800/60 border border-gray-700 rounded-xl flex flex-col items-center justify-center opacity-80">
+                        <span class="text-[10px] text-gray-400">下一個音</span>
+                        <span id="nextNoteName" class="text-lg font-bold text-gray-300">B4</span>
+                        <span id="nextHoleHint" class="text-[10px] text-amber-400 font-bold">4孔 吸</span>
+                    </div>
+                </div>
+
+                <div id="liveGameCoachHint" class="text-xs font-bold text-center text-gray-300 mt-1 h-5">
+                    請對準麥克風吹奏目標音符（或點擊「聽此音示範」）
+                </div>
+            </div>
+
+            <!-- 闖關完成 100分結算面板 -->
+            <div id="challengeResultModal" class="hidden flex-col items-center bg-gray-900 border-2 border-emerald-500 rounded-xl p-4 text-center">
+                <div class="text-lg font-extrabold text-emerald-400">🎉 樂譜吹奏完成！評分報告</div>
+                <div class="text-5xl font-black text-white my-2"><span id="finalGrade100">95</span> <span class="text-base text-gray-400 font-normal">/ 100分</span></div>
+                <div class="grid grid-cols-3 gap-2 w-full my-2 text-xs">
+                    <div class="bg-gray-800 p-2 rounded-lg"><span class="text-gray-400 block text-[10px]">平均音準誤差</span><span id="finalAvgCents" class="font-bold text-white">±4.2c</span></div>
+                    <div class="bg-gray-800 p-2 rounded-lg"><span class="text-gray-400 block text-[10px]">最高連擊 Combo</span><span id="finalMaxCombo" class="font-bold text-amber-400">13</span></div>
+                    <div class="bg-gray-800 p-2 rounded-lg"><span class="text-gray-400 block text-[10px]">氣流穩定評級</span><span id="finalAirGrade" class="font-bold text-emerald-400">A+</span></div>
+                </div>
+                <p id="finalCoachAdvice" class="text-xs text-blue-200 bg-blue-950/60 border border-blue-800 rounded-lg p-2.5 w-full my-2 text-left leading-relaxed"></p>
+                <button onclick="resetChallengeScore()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-6 rounded-xl shadow mt-1">
+                    再吹一次
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // =========================================================================
+        // 1. 12孔半音階口琴完整資料庫 (C調 Solo Tuning: Hole 1 ~ Hole 12)
+        // =========================================================================
+        const noteStrings = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "G♯", "A", "B♭", "B"];
+        const solfegeStrings = ["Do", "Di", "Re", "Me", "Mi", "Fa", "Fi", "Sol", "Le", "La", "Te", "Ti"];
+        const jianpuStrings = ["1", "#1", "2", "#2", "3", "4", "#4", "5", "#5", "6", "#6", "7"];
+
+        // 定義每一孔的 4 個音 (吹、吹+按、吸、吸+按) 對應的 MIDI Note Number
+        const harmonicaHolesData = [
+            { hole: 1, blow: 60, blowS: 61, draw: 62, drawS: 63 }, // 低音區 C4 ~ D#4
+            { hole: 2, blow: 64, blowS: 65, draw: 65, drawS: 66 }, // E4, F4, F4, F#4
+            { hole: 3, blow: 67, blowS: 68, draw: 69, drawS: 70 }, // G4, G#4, A4, Bb4
+            { hole: 4, blow: 72, blowS: 73, draw: 71, drawS: 72 }, // C5, C#5, B4, C5
+            { hole: 5, blow: 72, blowS: 73, draw: 74, drawS: 75 }, // 中音區 C5 ~ D#5
+            { hole: 6, blow: 76, blowS: 77, draw: 77, drawS: 78 }, // E5, F5, F5, F#5
+            { hole: 7, blow: 79, blowS: 80, draw: 81, drawS: 82 }, // G5, G#5, A5, Bb5
+            { hole: 8, blow: 84, blowS: 85, draw: 83, drawS: 84 }, // C6, C#6, B5, C6
+            { hole: 9, blow: 84, blowS: 85, draw: 86, drawS: 87 }, // 高音區 C6 ~ D#6
+            { hole: 10, blow: 88, blowS: 89, draw: 89, drawS: 90 }, // E6, F6, F6, F#6
+            { hole: 11, blow: 91, blowS: 92, draw: 93, drawS: 94 }, // G6, G#6, A6, Bb6
+            { hole: 12, blow: 96, blowS: 97, draw: 95, drawS: 96 }  // C7, C#7, B6, C7
+        ];
+
+        // MIDI 對應最佳孔位表 (60 = C4 到 97 = C#7)
+        const chromaMap = {
+            60:{hole:1,action:'blow',btn:false}, 61:{hole:1,action:'blow',btn:true}, 62:{hole:1,action:'draw',btn:false}, 63:{hole:1,action:'draw',btn:true},
+            64:{hole:2,action:'blow',btn:false}, 65:{hole:2,action:'draw',btn:false}, 66:{hole:2,action:'draw',btn:true},
+            67:{hole:3,action:'blow',btn:false}, 68:{hole:3,action:'blow',btn:true}, 69:{hole:3,action:'draw',btn:false}, 70:{hole:3,action:'draw',btn:true},
+            71:{hole:4,action:'draw',btn:false}, 72:{hole:5,action:'blow',btn:false}, 73:{hole:5,action:'blow',btn:true}, 74:{hole:5,action:'draw',btn:false},
+            75:{hole:5,action:'draw',btn:true},  76:{hole:6,action:'blow',btn:false}, 77:{hole:6,action:'draw',btn:false}, 78:{hole:6,action:'draw',btn:true},
+            79:{hole:7,action:'blow',btn:false}, 80:{hole:7,action:'blow',btn:true}, 81:{hole:7,action:'draw',btn:false}, 82:{hole:7,action:'draw',btn:true},
+            83:{hole:8,action:'draw',btn:false}, 84:{hole:9,action:'blow',btn:false}, 85:{hole:9,action:'blow',btn:true}, 86:{hole:9,action:'draw',btn:false},
+            87:{hole:9,action:'draw',btn:true},  88:{hole:10,action:'blow',btn:false},89:{hole:10,action:'draw',btn:false},90:{hole:10,action:'draw',btn:true},
+            91:{hole:11,action:'blow',btn:false},92:{hole:11,action:'blow',btn:true}, 93:{hole:11,action:'draw',btn:false},94:{hole:11,action:'draw',btn:true},
+            95:{hole:12,action:'draw',btn:false},96:{hole:12,action:'blow',btn:false},97:{hole:12,action:'blow',btn:true}
+        };
+
+        function midiToNoteLabel(midi) {
+            return noteStrings[midi % 12] + (Math.floor(midi / 12) - 1);
+        }
+
+        // 建立 12 孔互動式位圖
+        const harmonicaGrid = document.getElementById('harmonicaGrid');
+        harmonicaHolesData.forEach(h => {
+            const col = document.createElement('div');
+            col.id = `hole-col-${h.hole}`;
+            col.className = "flex flex-col items-center space-y-1 p-0.5 transition-all";
+            col.innerHTML = `
+                <button onclick="playReferenceMidi(${h.blowS})" id="slot-${h.hole}-blow-true" class="w-full h-5 rounded bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[9px] font-mono text-gray-400 flex items-center justify-center transition-all" title="第${h.hole}孔 按鍵吹氣 (${midiToNoteLabel(h.blowS)})">${noteStrings[h.blowS%12]}</button>
+                <button onclick="playReferenceMidi(${h.blow})" id="slot-${h.hole}-blow-false" class="w-full h-6 rounded bg-gray-800 hover:bg-gray-700 border border-gray-700 text-[10px] font-bold text-gray-200 flex items-center justify-center transition-all" title="第${h.hole}孔 吹氣 (${midiToNoteLabel(h.blow)})">${noteStrings[h.blow%12]}</button>
+                <div class="h-4 text-[10px] font-mono font-extrabold text-gray-400 flex items-center justify-center">${h.hole}</div>
+                <button onclick="playReferenceMidi(${h.draw})" id="slot-${h.hole}-draw-false" class="w-full h-6 rounded bg-gray-800 hover:bg-gray-700 border border-gray-700 text-[10px] font-bold text-gray-200 flex items-center justify-center transition-all" title="第${h.hole}孔 吸氣 (${midiToNoteLabel(h.draw)})">${noteStrings[h.draw%12]}</button>
+                <button onclick="playReferenceMidi(${h.drawS})" id="slot-${h.hole}-draw-true" class="w-full h-5 rounded bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[9px] font-mono text-gray-400 flex items-center justify-center transition-all" title="第${h.hole}孔 按鍵吸氣 (${midiToNoteLabel(h.drawS)})">${noteStrings[h.drawS%12]}</button>
+            `;
+            harmonicaGrid.appendChild(col);
+        });
+
+        // =========================================================================
+        // 2. 音訊核心與狀態變數 (支援真實麥克風 + 合成示範音)
+        // =========================================================================
+        let audioContext = null;
+        let analyser = null;
+        let microphone = null;
+        let micGainNode = null;
+        let filterNode = null;
+        let isMicRunning = false;
+
+        let a4Frequency = 442;
+        let rootKeyOffset = 0;
+        let micSensitivity = 3.5;
+        let timeDomainBuffer = new Float32Array(2048);
+
+        // 模擬試音狀態 (讓使用者點擊孔位也能觸發視覺與調音器)
+        let simulatedFreq = -1;
+        let simulatedTimer = null;
+
+        // UI 平滑與歷史軌跡
+        let currentCents = 0, targetCents = 0;
+        let currentVolume = 0, targetVolume = 0;
+        let activeColor = '#6b7280';
+        let pitchHistory = []; // 儲存最近 90 幀的音準偏差
+        let vibratoHistory = []; // 儲存最近 90 幀的頻率波動
+
+        // 模式狀態
+        let currentMainMode = 'free'; // 'free' | 'beginner' | 'score'
+        let currentBeginnerDrill = 'dynamics'; // 'dynamics' | 'slide' | 'rhythm' | 'vibrato'
+
+        // 自由模式：音域準確度統計 (低、中、高音區)
+        let octaveStats = {
+            low: { hits: 0, total: 0 },
+            mid: { hits: 0, total: 0 },
+            high: { hits: 0, total: 0 }
+        };
+
+        function ensureAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        // 點擊孔位或試音按鈕：播放標準口琴音色並驅動視覺位圖
+        function playReferenceMidi(midiNote, durationMs = 900) {
+            ensureAudioContext();
+            const freq = a4Frequency * Math.pow(2, (midiNote - 69) / 12);
+            
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            // 使用三角波+微泛音模擬柔和簧片聲
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+
+            gain.gain.setValueAtTime(0.01, audioContext.currentTime);
+            gain.gain.linearRampToValueAtTime(0.25, audioContext.currentTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + durationMs / 1000);
+
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.start();
+            osc.stop(audioContext.currentTime + durationMs / 1000);
+
+            // 同步觸發視覺模擬，讓用戶看到該音在位圖與調音器的反應
+            simulatedFreq = freq;
+            if (simulatedTimer) clearTimeout(simulatedTimer);
+            simulatedTimer = setTimeout(() => { simulatedFreq = -1; }, durationMs);
+        }
+
+        document.getElementById('demoToneBtn').addEventListener('click', () => {
+            playReferenceMidi(69, 1200); // 播放 A4 (442Hz)
+        });
+
+        // 啟動麥克風 (關鍵修復：關閉 echoCancellation 與 noiseSuppression 防止口琴長音被過濾)
+        async function toggleMicrophone() {
+            ensureAudioContext();
+            const btn = document.getElementById('startMicBtn');
+            const statusText = document.getElementById('micStatusText');
+
+            if (isMicRunning) {
+                isMicRunning = false;
+                btn.innerHTML = '<i class="fa-solid fa-microphone"></i> <span>啟動收音</span>';
+                btn.className = "mic-pulse bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-lg flex items-center gap-1.5";
+                statusText.innerText = "⏸️ 收音已暫停，點擊右側按鈕可重新啟動";
+                statusText.className = "text-[11px] text-amber-400 font-medium";
+                return;
+            }
+
+            try {
+                statusText.innerText = "⏳ 正在連接高靈敏度麥克風 (已關閉降噪干擾)...";
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
+                });
+
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+
+                // 麥克風前級放大器 (讓微弱口琴聲也能輕鬆觸發)
+                micGainNode = audioContext.createGain();
+                micGainNode.gain.value = micSensitivity;
+
+                // 3200Hz 低通濾波器 (保留 1~12 孔基頻，濾除極高頻嘶聲)
+                filterNode = audioContext.createBiquadFilter();
+                filterNode.type = 'lowpass';
+                filterNode.frequency.value = 3200;
+                filterNode.Q.value = 0.7;
+
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(micGainNode);
+                micGainNode.connect(filterNode);
+                filterNode.connect(analyser);
+
+                isMicRunning = true;
+                btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> <span>收音運作中</span>';
+                btn.className = "bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-lg flex items-center gap-1.5";
+                statusText.innerText = "✅ 高靈敏收音中！現在隨意吹奏即可即時顯示孔位與音準";
+                statusText.className = "text-[11px] text-emerald-400 font-semibold";
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = "❌ 無法存取麥克風，請允許瀏覽器麥克風權限，或點擊下方口琴孔位直接試聽互動！";
+                statusText.className = "text-[11px] text-red-400 font-bold";
+            }
+        }
+
+        document.getElementById('startMicBtn').addEventListener('click', toggleMicrophone);
+
+        // =========================================================================
+        // 3. 改良版高靈敏度 Autocorrelation 時域音高偵測演算法
+        // =========================================================================
+        function detectPitchAndVolume(buf, sampleRate) {
+            let SIZE = buf.length;
+            let sumSquares = 0;
+            for (let i = 0; i < SIZE; i++) {
+                sumSquares += buf[i] * buf[i];
+            }
+            let rms = Math.sqrt(sumSquares / SIZE);
+
+            // 將音量映射到 0 ~ 100%
+            targetVolume = Math.min(100, Math.max(0, rms * 260));
+
+            // 調低門檻至 0.0025，確保輕柔吹奏也有反應
+            if (rms < 0.0025) return -1;
+
+            let r1 = 0, r2 = SIZE - 1, thres = 0.15;
+            for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+            for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+            buf = buf.slice(r1, r2);
+            SIZE = buf.length;
+            if (SIZE < 64) return -1;
+
+            let c = new Float32Array(SIZE);
+            for (let i = 0; i < SIZE; i++) {
+                for (let j = 0; j < SIZE - i; j++) {
+                    c[i] += buf[j] * buf[j + i];
+                }
+            }
+
+            let d = 0;
+            while (d < SIZE - 1 && c[d] > c[d + 1]) d++;
+            let maxval = -1, maxpos = -1;
+            for (let i = d; i < SIZE; i++) {
+                if (c[i] > maxval) {
+                    maxval = c[i];
+                    maxpos = i;
+                }
+            }
+            if (maxpos <= 0 || maxpos >= SIZE - 1) return -1;
+
+            // 拋物線插值微調
+            let x1 = c[maxpos - 1], x2 = c[maxpos], x3 = c[maxpos + 1];
+            let a = (x1 + x3 - 2 * x2) / 2;
+            let b = (x3 - x1) / 2;
+            let T0 = a ? maxpos - b / (2 * a) : maxpos;
+
+            return sampleRate / T0;
+        }
+
+        // 清除並更新 12 孔位圖亮燈狀態
+        let lastActiveSlotId = null;
+        let lastActiveColId = null;
+
+        function highlightHarmonicaMap(midiNote) {
+            if (lastActiveSlotId) {
+                const prevEl = document.getElementById(lastActiveSlotId);
+                if (prevEl) prevEl.classList.remove('slot-active-blow', 'slot-active-draw', 'slot-active-slide');
+                lastActiveSlotId = null;
+            }
+            if (lastActiveColId) {
+                const prevCol = document.getElementById(lastActiveColId);
+                if (prevCol) prevCol.classList.remove('hole-col-active');
+                lastActiveColId = null;
+            }
+
+            const slideBtn = document.getElementById('slideIndicatorBtn');
+            const mapInfo = chromaMap[midiNote];
+
+            if (!mapInfo) {
+                slideBtn.innerText = "🔘 按鍵 (Slide): 未按";
+                slideBtn.className = "px-2.5 py-0.5 rounded-md bg-gray-800 border border-gray-700 text-gray-400 text-[11px] font-bold transition-all";
+                return null;
+            }
+
+            const slotId = `slot-${mapInfo.hole}-${mapInfo.action}-${mapInfo.btn}`;
+            const colId = `hole-col-${mapInfo.hole}`;
+            const slotEl = document.getElementById(slotId);
+            const colEl = document.getElementById(colId);
+
+            if (slotEl) {
+                slotEl.classList.add(mapInfo.action === 'blow' ? 'slot-active-blow' : 'slot-active-draw');
+                lastActiveSlotId = slotId;
+            }
+            if (colEl) {
+                colEl.classList.add('hole-col-active');
+                lastActiveColId = colId;
+            }
+
+            if (mapInfo.btn) {
+                slideBtn.innerText = "🔘 按鍵 (Slide): 已按下 (+半音)";
+                slideBtn.className = "px-2.5 py-0.5 rounded-md slot-active-slide text-[11px] transition-all";
+            } else {
+                slideBtn.innerText = "🔘 按鍵 (Slide): 未按 (自然音)";
+                slideBtn.className = "px-2.5 py-0.5 rounded-md bg-gray-800 border border-gray-700 text-gray-300 text-[11px] font-bold transition-all";
+            }
+            return mapInfo;
+        }
+
+        // 更新音域與音準診斷卡 + 自由模式音域統計
+        function updateRegisterAndAccuracyUI(midiNote, cents, mapInfo) {
+            const regBadge = document.getElementById('registerBadge');
+            const accDiag = document.getElementById('accuracyDiagnosis');
+
+            if (!mapInfo) {
+                if (midiNote < 60) {
+                    regBadge.innerHTML = `<span class="text-amber-400">⚠️ 低於第1孔音域 (${midiToNoteLabel(midiNote)})</span>`;
+                } else {
+                    regBadge.innerHTML = `<span class="text-amber-400">⚠️ 超出12孔音域 (${midiToNoteLabel(midiNote)})</span>`;
+                }
+                accDiag.innerText = "超出標準12孔C調範圍";
+                return;
+            }
+
+            // 判斷低、中、高音域
+            let regName = "";
+            let regKey = "";
+            if (mapInfo.hole <= 4) {
+                regName = `低音域 (第${mapInfo.hole}孔 ${mapInfo.action==='blow'?'吹':'吸'}${mapInfo.btn?'+按':''})`;
+                regKey = 'low';
+                regBadge.className = "text-xs font-bold text-indigo-300 mt-0.5";
+            } else if (mapInfo.hole <= 8) {
+                regName = `中音域 (第${mapInfo.hole}孔 ${mapInfo.action==='blow'?'吹':'吸'}${mapInfo.btn?'+按':''})`;
+                regKey = 'mid';
+                regBadge.className = "text-xs font-bold text-blue-300 mt-0.5";
+            } else {
+                regName = `高音域 (第${mapInfo.hole}孔 ${mapInfo.action==='blow'?'吹':'吸'}${mapInfo.btn?'+按':''})`;
+                regKey = 'high';
+                regBadge.className = "text-xs font-bold text-purple-300 mt-0.5";
+            }
+            regBadge.innerText = regName;
+
+            // 診斷音準與氣息
+            const absCents = Math.abs(cents);
+            const isHit = absCents <= 15;
+            if (absCents <= 6) {
+                accDiag.innerText = "🎯 音準極佳！氣流非常穩定";
+                accDiag.className = "text-xs font-bold text-emerald-400 mt-0.5";
+            } else if (absCents <= 18) {
+                accDiag.innerText = `✅ 音準良好 (${cents>0?'略高':'略低'} ${absCents}c)`;
+                accDiag.className = "text-xs font-bold text-green-300 mt-0.5";
+            } else if (cents < -18) {
+                accDiag.innerText = `⬇️ 音準偏低 (${cents}c) 勿過度壓音/漏氣`;
+                accDiag.className = "text-xs font-bold text-red-400 mt-0.5";
+            } else {
+                accDiag.innerText = `⬆️ 音準偏高 (+${cents}c) 請放緩吹氣力度`;
+                accDiag.className = "text-xs font-bold text-amber-400 mt-0.5";
+            }
+
+            // 累積自由模式的音域準確度統計
+            octaveStats[regKey].total++;
+            if (isHit) octaveStats[regKey].hits++;
+            renderOctaveStatsUI();
+        }
+
+        function renderOctaveStatsUI() {
+            ['low', 'mid', 'high'].forEach(k => {
+                const st = octaveStats[k];
+                const accEl = document.getElementById(`${k}OctaveAcc`);
+                const statusEl = document.getElementById(`${k}OctaveStatus`);
+                if (st.total > 5) {
+                    const pct = Math.round((st.hits / st.total) * 100);
+                    accEl.innerText = `${pct}%`;
+                    accEl.className = `text-xl font-black mt-1 block ${pct >= 80 ? 'text-emerald-400' : (pct >= 60 ? 'text-amber-400' : 'text-red-400')}`;
+                    statusEl.innerText = pct >= 80 ? '音域掌握極佳' : '注意口腔共鳴穩定';
+                } else {
+                    accEl.innerText = '--%';
+                    accEl.className = 'text-xl font-black text-white mt-1 block';
+                    statusEl.innerText = '尚未吹奏';
+                }
+            });
+        }
+
+        document.getElementById('resetStatsBtn').addEventListener('click', () => {
+            octaveStats = { low: { hits: 0, total: 0 }, mid: { hits: 0, total: 0 }, high: { hits: 0, total: 0 } };
+            pitchHistory = [];
+            renderOctaveStatsUI();
+        });
+
+        // =========================================================================
+        // 4. 初學者特訓營四大教練邏輯 (大聲程度 / 按鍵準確 / 節奏感 / 震音)
+        // =========================================================================
+        let dynamicsGoodFrames = 0, dynamicsTotalFrames = 0;
+        let slideGoodCount = 0, slideReachedStep1 = false;
+        let rhythmIsRunning = false, rhythmBpm = 80, lastRhythmBeatTime = 0, currentBeatIdx = 0;
+        let wasSilentLastFrame = true, rhythmHits = 0, rhythmTotalAttacks = 0;
+
+        // 切換主模式與子特訓
+        window.switchMainMode = function(mode) {
+            currentMainMode = mode;
+            ['free', 'beginner', 'score'].forEach(m => {
+                const panel = document.getElementById(`modePanel-${m}`);
+                const btn = document.getElementById(`tabBtn-${m}`);
+                if (m === mode) {
+                    panel.classList.remove('hidden');
+                    panel.classList.add('flex');
+                    btn.className = "mode-tab-btn py-2 px-2 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-600 text-white shadow";
+                } else {
+                    panel.classList.add('hidden');
+                    panel.classList.remove('flex');
+                    btn.className = "mode-tab-btn py-2 px-2 rounded-lg text-xs sm:text-sm font-bold transition-all text-gray-300 hover:bg-gray-700";
+                }
+            });
+        };
+
+        window.switchBeginnerDrill = function(drill) {
+            currentBeginnerDrill = drill;
+            ['dynamics', 'slide', 'rhythm', 'vibrato'].forEach(d => {
+                const panel = document.getElementById(`drillPanel-${d}`);
+                const btn = document.getElementById(`drillBtn-${d}`);
+                if (d === drill) {
+                    panel.classList.remove('hidden');
+                    panel.classList.add('flex');
+                    btn.className = "drill-btn py-2 px-2 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow flex items-center justify-center gap-1";
+                } else {
+                    panel.classList.add('hidden');
+                    panel.classList.remove('flex');
+                    btn.className = "drill-btn py-2 px-2 rounded-lg text-xs font-bold bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700 flex items-center justify-center gap-1";
+                }
+            });
+        };
+
+        // 1. 大聲程度設定更新
+        document.getElementById('dynamicsTargetSelect').addEventListener('change', (e) => {
+            const val = e.target.value;
+            const zone = document.getElementById('dynamicsTargetZone');
+            dynamicsGoodFrames = 0; dynamicsTotalFrames = 0;
+            if (val === 'p') { zone.style.left = '15%'; zone.style.width = '20%'; }
+            else if (val === 'mf') { zone.style.left = '35%'; zone.style.width = '30%'; }
+            else { zone.style.left = '65%'; zone.style.width = '25%'; }
+        });
+
+        // 2. 半音階按鍵題目切換
+        document.getElementById('slideDrillSelect').addEventListener('change', (e) => {
+            const baseMidi = parseInt(e.target.value);
+            const sharpMidi = baseMidi + 1;
+            const m1 = chromaMap[baseMidi], m2 = chromaMap[sharpMidi];
+            document.getElementById('slideBaseNoteText').innerText = `${midiToNoteLabel(baseMidi)} (${m1.hole}孔${m1.action==='blow'?'吹':'吸'})`;
+            document.getElementById('slideSharpNoteText').innerText = `${midiToNoteLabel(sharpMidi)} (${m2.hole}孔${m2.action==='blow'?'吹':'吸'}+按)`;
+            slideReachedStep1 = false;
+        });
+
+        // 3. 節奏訓練開關
+        document.getElementById('rhythmToggleBtn').addEventListener('click', (e) => {
+            ensureAudioContext();
+            rhythmIsRunning = !rhythmIsRunning;
+            e.target.innerText = rhythmIsRunning ? "⏹️ 停止節拍器" : "▶️ 啟動節拍訓練";
+            e.target.className = rhythmIsRunning ? "bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow" : "bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow";
+            lastRhythmBeatTime = performance.now();
+        });
+
+        document.getElementById('rhythmBpmSlider').addEventListener('input', (e) => {
+            rhythmBpm = parseInt(e.target.value);
+            document.getElementById('rhythmBpmVal').innerText = rhythmBpm;
+        });
+
+        function playMetronomeTick(isDownbeat) {
+            if (!audioContext) return;
+            const osc = audioContext.createOscillator();
+            const g = audioContext.createGain();
+            osc.frequency.value = isDownbeat ? 1050 : 750;
+            g.gain.setValueAtTime(0.25, audioContext.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.045);
+            osc.connect(g); g.connect(audioContext.destination);
+            osc.start(); osc.stop(audioContext.currentTime + 0.05);
+        }
+
+        function updateBeginnerCoaches(midiNote, cents, pitchHz, volumePct) {
+            // A. 大聲程度控制 (Dynamics)
+            const dynBar = document.getElementById('dynamicsUserBar');
+            dynBar.style.width = `${volumePct}%`;
+            const targetMode = document.getElementById('dynamicsTargetSelect').value;
+            let minV = 35, maxV = 65;
+            if (targetMode === 'p') { minV = 15; maxV = 35; }
+            else if (targetMode === 'f') { minV = 65; maxV = 90; }
+
+            if (volumePct > 5) {
+                dynamicsTotalFrames++;
+                let levelName = volumePct < 35 ? "弱音 (p - 輕柔)" : (volumePct < 65 ? "中音 (mf - 適中)" : "強音 (f - 飽滿大聲)");
+                document.getElementById('dynamicsLevelLabel').innerText = `目前音量: ${Math.round(volumePct)}% — ${levelName}`;
+
+                if (volumePct >= minV && volumePct <= maxV) {
+                    dynamicsGoodFrames++;
+                    dynBar.className = "h-full bg-emerald-500 transition-all duration-75";
+                    if (Math.abs(cents) > 20) {
+                        document.getElementById('dynamicsCoachTip').innerText = "⚠️ 音量達標，但用力時音準偏掉了！請保持橫膈膜支撐並放鬆喉嚨。";
+                    } else {
+                        document.getElementById('dynamicsCoachTip').innerText = "✨ 太棒了！音量與音準都完美鎖定在目標區間！";
+                    }
+                } else {
+                    dynBar.className = "h-full bg-amber-500 transition-all duration-75";
+                    document.getElementById('dynamicsCoachTip').innerText = volumePct < minV ? "💨 氣流太弱囉！請稍微加大吹/吸氣量" : "🔥 太大聲囉！請收一點氣流，避免簧片過載";
+                }
+                const rate = Math.round((dynamicsGoodFrames / dynamicsTotalFrames) * 100);
+                document.getElementById('dynamicsHoldScore').innerText = `穩定達標率: ${rate}%`;
+            }
+
+            // B. 半音階按鍵準確度 (Slide Button)
+            const baseTarget = parseInt(document.getElementById('slideDrillSelect').value);
+            const sharpTarget = baseTarget + 1;
+            if (midiNote === baseTarget && Math.abs(cents) < 25) {
+                slideReachedStep1 = true;
+                document.getElementById('slideStep1Status').innerText = "✅ 基準音準確！現在請推按鍵";
+                document.getElementById('slideStep1Status').className = "text-[11px] text-emerald-400 font-bold";
+            } else if (slideReachedStep1 && midiNote === sharpTarget) {
+                if (Math.abs(cents) <= 18) {
+                    slideGoodCount++;
+                    slideReachedStep1 = false;
+                    document.getElementById('slideStep2Status').innerText = "🎯 按鍵乾淨到位！";
+                    document.getElementById('slideStep2Status').className = "text-[11px] text-emerald-400 font-bold";
+                    document.getElementById('slideFeedbackMsg').innerText = "🎉 完美推鍵！半音切換非常果斷且不漏氣！";
+                    document.getElementById('slideSuccessCount').innerText = `完美推鍵: ${slideGoodCount} 次`;
+                } else {
+                    document.getElementById('slideFeedbackMsg').innerText = "⚠️ 推鍵後音準偏低，請檢查按鍵是否推到底、嘴角有無漏氣！";
+                }
+            }
+
+            // D. 震音與抖音波形分析 (Vibrato)
+            if (pitchHz > 0) {
+                vibratoHistory.push({ cents: cents, vol: volumePct, t: performance.now() });
+                if (vibratoHistory.length > 90) vibratoHistory.shift();
+                analyzeAndDrawVibrato();
+            }
+        }
+
+        function analyzeAndDrawVibrato() {
+            const vCanvas = document.getElementById('vibratoCanvas');
+            const vCtx = vCanvas.getContext('2d');
+            vCtx.clearRect(0, 0, vCanvas.width, vCanvas.height);
+
+            // 中央基準線
+            vCtx.strokeStyle = '#374151';
+            vCtx.lineWidth = 1;
+            vCtx.beginPath();
+            vCtx.moveTo(0, vCanvas.height / 2);
+            vCtx.lineTo(vCanvas.width, vCanvas.height / 2);
+            vCtx.stroke();
+
+            if (vibratoHistory.length < 20) return;
+
+            // 繪製音高波動曲線 (紫色) 與氣流波動 (藍色)
+            vCtx.strokeStyle = '#c084fc';
+            vCtx.lineWidth = 2.5;
+            vCtx.beginPath();
+            let minC = 999, maxC = -999, meanC = 0;
+            vibratoHistory.forEach(p => { meanC += p.cents; });
+            meanC /= vibratoHistory.length;
+
+            let zeroCrossings = 0;
+            for (let i = 0; i < vibratoHistory.length; i++) {
+                const c = vibratoHistory[i].cents;
+                if (c < minC) minC = c;
+                if (c > maxC) maxC = c;
+                if (i > 0) {
+                    if ((vibratoHistory[i - 1].cents - meanC) * (c - meanC) < 0) zeroCrossings++;
+                }
+                const x = (i / 90) * vCanvas.width;
+                const y = (vCanvas.height / 2) - ((c - meanC) * 1.4);
+                if (i === 0) vCtx.moveTo(x, y);
+                else vCtx.lineTo(x, y);
+            }
+            vCtx.stroke();
+
+            const durationSec = (vibratoHistory[vibratoHistory.length - 1].t - vibratoHistory[0].t) / 1000;
+            const rateHz = durationSec > 0 ? (zeroCrossings / 2) / durationSec : 0;
+            const depthCents = Math.round(maxC - minC);
+
+            document.getElementById('vibRateDisplay').innerText = `${rateHz.toFixed(1)} Hz`;
+            document.getElementById('vibDepthDisplay').innerText = `±${Math.round(depthCents / 2)} cents`;
+
+            const qualEl = document.getElementById('vibQualityDisplay');
+            if (depthCents >= 8 && rateHz >= 3.5 && rateHz <= 8.0) {
+                qualEl.innerText = "🌟 完美震音！波浪極具音樂性";
+                qualEl.className = "text-xs font-bold text-emerald-400 mt-1 block";
+            } else if (depthCents < 6) {
+                qualEl.innerText = "📏 直音狀態 (嘗試輕微抖動氣流或手掌)";
+                qualEl.className = "text-xs font-bold text-blue-300 mt-1 block";
+            } else {
+                qualEl.innerText = rateHz > 8 ? "⚡ 震動過快 (請放慢頻率)" : "🌊 波動不規則 (請保持穩定韻律)";
+                qualEl.className = "text-xs font-bold text-amber-400 mt-1 block";
+            }
+        }
+
+        // =========================================================================
+        // 5. 模式 3：自由入譜工作台與不卡關闖關系統
+        // =========================================================================
+        const presetSongs = {
+            twinkle: "1 1 5 5 6 6 5 4 4 3 3 2 2 1",
+            scale: "1 2 3 4 5 6 7 1'",
+            laputa: "6 7 1' 7 1' 3' 7 3 6 5 6 1' 5",
+            chromatic_run: "1 #1 2 #2 3 4 #4 5"
+        };
+
+        let editorOctaveOffset = 0; // -12 (低音), 0 (中音), +12 (高音)
+        let editorSharpActive = false;
+        let activeScoreNotes = [];
+        let currentScoreIdx = 0;
+        let holdProgress = 0;
+        let challengeCombo = 0, challengeMaxCombo = 0, challengeCentsSum = 0, challengeFrames = 0;
+
+        window.setEditorOctave = function(offset) {
+            editorOctaveOffset = offset;
+            document.getElementById('OctaveBtn-low').className = offset === -12 ? "text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white font-bold" : "text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-600";
+            document.getElementById('OctaveBtn-mid').className = offset === 0 ? "text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white font-bold" : "text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-600";
+            document.getElementById('OctaveBtn-high').className = offset === 12 ? "text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white font-bold" : "text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-600";
+        };
+
+        window.toggleEditorSharp = function() {
+            editorSharpActive = !editorSharpActive;
+            const btn = document.getElementById('SharpToggleBtn');
+            btn.innerText = editorSharpActive ? "#升半音: 開啟" : "#升半音: 關";
+            btn.className = editorSharpActive ? "text-[10px] px-2 py-0.5 rounded bg-amber-500 text-gray-900 font-bold" : "text-[10px] px-2 py-0.5 rounded bg-gray-800 text-amber-400 border border-amber-600/50 font-bold";
+        };
+
+        window.appendQuickNote = function(numStr) {
+            const input = document.getElementById('customScoreInput');
+            let token = (editorSharpActive ? "#" : "") + (editorOctaveOffset === -12 ? "." : "") + numStr + (editorOctaveOffset === 12 ? "'" : "");
+            input.value = (input.value.trim() + " " + token).trim();
+            document.getElementById('songSelector').value = 'custom';
+            loadScoreFromText(input.value);
+        };
+
+        window.backspaceScoreInput = function() {
+            const input = document.getElementById('customScoreInput');
+            let parts = input.value.trim().split(/\s+/);
+            parts.pop();
+            input.value = parts.join(" ");
+            loadScoreFromText(input.value);
+        };
+
+        window.clearScoreInput = function() {
+            document.getElementById('customScoreInput').value = "";
+        };
+
+        // 智慧型樂譜解析器：支援簡譜 (.5, #1, 1', 1~7) 以及科學音名 (C4, F#5, G5)
+        function parseFlexibleScore(str) {
+            const tokens = str.trim().split(/[\s,|-]+/);
+            const jianpuBase = { '1': 60, '2': 62, '3': 64, '4': 65, '5': 67, '6': 69, '7': 71 };
+            const letterBase = { 'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11 };
+            let result = [];
+
+            tokens.forEach(tk => {
+                if (!tk) return;
+                // 檢查是否為科學音名如 C4, C#5, Bb4
+                let mLetter = tk.match(/^([A-Ga-g])([#♯b♭]?)(\d?)$/);
+                if (mLetter) {
+                    let semi = letterBase[mLetter[1].toUpperCase()];
+                    if (mLetter[2] === '#' || mLetter[2] === '♯') semi += 1;
+                    if (mLetter[2] === 'b' || mLetter[2] === '♭') semi -= 1;
+                    let oct = mLetter[3] !== "" ? parseInt(mLetter[3]) : 4;
+                    result.push((oct + 1) * 12 + semi + rootKeyOffset);
+                    return;
+                }
+                // 檢查是否為簡譜如 #1', .6, 5
+                let mNum = tk.match(/^([#♯b♭]?)(\.*)([1-7])('*)$/);
+                if (mNum) {
+                    let midi = jianpuBase[mNum[3]] + rootKeyOffset;
+                    if (mNum[1] === '#' || mNum[1] === '♯') midi += 1;
+                    if (mNum[1] === 'b' || mNum[1] === '♭') midi -= 1;
+                    if (mNum[2].length > 0) midi -= 12 * mNum[2].length;
+                    if (mNum[4].length > 0) midi += 12 * mNum[4].length;
+                    result.push(midi);
+                }
+            });
+            return result;
+        }
+
+        function loadScoreFromText(text) {
+            const parsed = parseFlexibleScore(text);
+            const fb = document.getElementById('customScoreFeedback');
+            if (parsed.length > 0) {
+                activeScoreNotes = parsed;
+                currentScoreIdx = 0;
+                holdProgress = 0;
+                challengeCombo = 0; challengeMaxCombo = 0; challengeCentsSum = 0; challengeFrames = 0;
+                document.getElementById('challengeResultModal').classList.add('hidden');
+                document.getElementById('challengeActiveArea').classList.remove('hidden');
+                fb.innerHTML = `✅ 成功載入 <span class="text-emerald-400 font-bold">${parsed.length}</span> 個音符！可點擊下方樂譜卡片任意跳轉或試聽。`;
+                renderScoreChallengeUI();
+            } else {
+                fb.innerHTML = `<span class="text-red-400">❌ 請輸入有效的簡譜數字 (1~7) 或音名 (C~B)</span>`;
+            }
+        }
+
+        function renderScoreChallengeUI() {
+            if (activeScoreNotes.length === 0) return;
+            const targetMidi = activeScoreNotes[currentScoreIdx];
+            const mapInfo = chromaMap[targetMidi];
+
+            document.getElementById('scoreProgressLabel').innerText = `進度: ${currentScoreIdx + 1} / ${activeScoreNotes.length}`;
+            document.getElementById('gameScoreDisplay').innerText = `已完成: ${currentScoreIdx} / ${activeScoreNotes.length}`;
+            document.getElementById('gameComboDisplay').innerText = `Combo: ${challengeCombo}`;
+            document.getElementById('targetHoldBar').style.height = `${holdProgress}%`;
+
+            const relativeIdx = (targetMidi % 12 - rootKeyOffset + 12) % 12;
+            document.getElementById('targetNoteName').innerText = midiToNoteLabel(targetMidi);
+            document.getElementById('targetNoteSolfege').innerText = `(${solfegeStrings[relativeIdx]})`;
+            document.getElementById('targetHoleHint').innerText = mapInfo ? `${mapInfo.hole}孔 ${mapInfo.action==='blow'?'吹':'吸'}${mapInfo.btn?' + 按鍵':''}` : '自訂音高';
+
+            if (currentScoreIdx + 1 < activeScoreNotes.length) {
+                const nextMidi = activeScoreNotes[currentScoreIdx + 1];
+                const nextMap = chromaMap[nextMidi];
+                document.getElementById('nextNoteName').innerText = midiToNoteLabel(nextMidi);
+                document.getElementById('nextHoleHint').innerText = nextMap ? `${nextMap.hole}孔 ${nextMap.action==='blow'?'吹':'吸'}${nextMap.btn?'+按':''}` : '--';
+            } else {
+                document.getElementById('nextNoteName').innerText = "完成!";
+                document.getElementById('nextHoleHint').innerText = "🎉";
+            }
+
+            // 繪製樂譜時間軸卡片
+            const ribbon = document.getElementById('scoreRibbonContainer');
+            ribbon.innerHTML = '';
+            activeScoreNotes.forEach((m, idx) => {
+                const rel = (m % 12 - rootKeyOffset + 12) % 12;
+                const oct = Math.floor(m / 12) - 1;
+                const octMark = oct < 4 ? '.' : (oct > 4 ? "'" : '');
+                const btn = document.createElement('button');
+                btn.onclick = () => { currentScoreIdx = idx; holdProgress = 0; renderScoreChallengeUI(); playReferenceMidi(m, 500); };
+                if (idx < currentScoreIdx) {
+                    btn.className = "px-2.5 py-1 rounded-lg bg-emerald-900/50 border border-emerald-600 text-emerald-300 text-xs font-bold shrink-0";
+                } else if (idx === currentScoreIdx) {
+                    btn.className = "px-3 py-1 rounded-lg bg-blue-600 border-2 border-white text-white text-xs font-black shrink-0 shadow-md scale-105";
+                } else {
+                    btn.className = "px-2.5 py-1 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 text-xs shrink-0 hover:bg-gray-700";
+                }
+                btn.innerText = `${jianpuStrings[rel]}${octMark}`;
+                ribbon.appendChild(btn);
+            });
+        }
+
+        function updateScoreChallengeLogic(detectedMidi, cents) {
+            if (currentMainMode !== 'score' || activeScoreNotes.length === 0 || currentScoreIdx >= activeScoreNotes.length) return;
+
+            const targetMidi = activeScoreNotes[currentScoreIdx];
+            const ignoreOctave = document.getElementById('ignoreOctaveToggle').checked;
+            const hintEl = document.getElementById('liveGameCoachHint');
+
+            // 判斷音符是否吻合 (若開啟新手忽略八度，只要餘數 12 相同即算吹對)
+            const isNoteMatch = ignoreOctave ? (detectedMidi % 12 === targetMidi % 12) : (detectedMidi === targetMidi);
+
+            if (isNoteMatch && Math.abs(cents) <= 35) {
+                holdProgress += 8; // 約 0.2 秒即可順暢過關，不卡關
+                challengeCentsSum += Math.abs(cents);
+                challengeFrames++;
+                hintEl.innerText = "✨ 吹對了！保持氣流穩定...";
+                hintEl.className = "text-xs font-bold text-center text-emerald-400 mt-1 h-5";
+            } else {
+                holdProgress = Math.max(0, holdProgress - 2);
+                const tMap = chromaMap[targetMidi];
+                if (detectedMidi % 12 === targetMidi % 12 && !ignoreOctave) {
+                    hintEl.innerText = `⚠️ 唱名對了，但八度差了一階！(可勾選上方「忽略八度」輕鬆過關)`;
+                    hintEl.className = "text-xs font-bold text-center text-amber-400 mt-1 h-5";
+                } else if (tMap) {
+                    hintEl.innerText = `💡 目前吹出 ${midiToNoteLabel(detectedMidi)}，目標是【第 ${tMap.hole} 孔 ${tMap.action==='blow'?'吹氣':'吸氣'}${tMap.btn?' + 按鍵':''}】`;
+                    hintEl.className = "text-xs font-bold text-center text-blue-300 mt-1 h-5";
+                }
+            }
+
+            document.getElementById('targetHoldBar').style.height = `${Math.min(100, holdProgress)}%`;
+
+            if (holdProgress >= 100) {
+                holdProgress = 0;
+                challengeCombo++;
+                if (challengeCombo > challengeMaxCombo) challengeMaxCombo = challengeCombo;
+                currentScoreIdx++;
+
+                if (currentScoreIdx >= activeScoreNotes.length) {
+                    showChallengeFinalReport();
+                } else {
+                    renderScoreChallengeUI();
+                }
+            }
+        }
+
+        function showChallengeFinalReport() {
+            document.getElementById('challengeActiveArea').classList.add('hidden');
+            const modal = document.getElementById('challengeResultModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            const avgCents = challengeFrames > 0 ? (challengeCentsSum / challengeFrames) : 8;
+            let score100 = Math.round(Math.min(100, Math.max(60, 100 - avgCents * 1.1)));
+            document.getElementById('finalGrade100').innerText = score100;
+            document.getElementById('finalAvgCents').innerText = `±${avgCents.toFixed(1)}c`;
+            document.getElementById('finalMaxCombo').innerText = challengeMaxCombo;
+            document.getElementById('finalAirGrade').innerText = score100 >= 90 ? "S 級穩定" : "A 級良好";
+            document.getElementById('finalCoachAdvice').innerText = score100 >= 90
+                ? "🌟 表現太出色了！你的孔位轉換與氣流控制非常成熟，可以嘗試取消「忽略八度」或挑戰加入半音階按鍵的曲目！"
+                : "💪 恭喜完成整首曲目！部分音符切換時氣流稍微不穩，建議可切換到「2. 初學者特訓」練習大聲程度與推鍵穩定度。";
+        }
+
+        window.resetChallengeScore = function() {
+            loadScoreFromText(document.getElementById('customScoreInput').value);
+        };
+
+        document.getElementById('songSelector').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (presetSongs[val]) {
+                document.getElementById('customScoreInput').value = presetSongs[val];
+                loadScoreFromText(presetSongs[val]);
+            }
+        });
+        document.getElementById('applyCustomScoreBtn').addEventListener('click', () => {
+            document.getElementById('songSelector').value = 'custom';
+            loadScoreFromText(document.getElementById('customScoreInput').value);
+        });
+        document.getElementById('skipNoteBtn').addEventListener('click', () => {
+            if (currentScoreIdx < activeScoreNotes.length - 1) {
+                currentScoreIdx++; holdProgress = 0; renderScoreChallengeUI();
+            } else {
+                showChallengeFinalReport();
+            }
+        });
+        document.getElementById('restartScoreBtn').addEventListener('click', resetChallengeScore);
+        document.getElementById('playTargetToneBtn').addEventListener('click', () => {
+            if (activeScoreNotes[currentScoreIdx]) playReferenceMidi(activeScoreNotes[currentScoreIdx], 900);
+        });
+
+        // =========================================================================
+        // 6. 60FPS 主循環：整合收音、模擬音、指針繪製、位圖點亮與三大模式更新
+        // =========================================================================
+        const tunerCanvas = document.getElementById('tunerCanvas');
+        const tunerCtx = tunerCanvas.getContext('2d');
+        const freeGraphCanvas = document.getElementById('freePitchGraph');
+        const freeGraphCtx = freeGraphCanvas.getContext('2d');
+
+        function masterLoop() {
+            const now = performance.now();
+
+            // 處理初學者節奏器
+            if (rhythmIsRunning && now - lastRhythmBeatTime >= (60000 / rhythmBpm)) {
+                lastRhythmBeatTime = now;
+                currentBeatIdx = (currentBeatIdx + 1) % 4;
+                playMetronomeTick(currentBeatIdx === 0);
+                for (let i = 0; i < 4; i++) {
+                    const bBox = document.getElementById(`beatBox-${i}`);
+                    bBox.className = (i === currentBeatIdx)
+                        ? "bg-blue-600 border-2 border-white rounded-xl py-3 text-center font-black text-lg text-white scale-105 transition-all shadow-lg"
+                        : "bg-gray-800 border border-gray-700 rounded-xl py-3 text-center font-black text-lg text-gray-500 transition-all";
+                }
+            }
+
+            // 取得目前頻率 (優先使用真實麥克風，若點擊試音則使用模擬頻率)
+            let pitch = -1;
+            if (simulatedFreq > 0) {
+                pitch = simulatedFreq;
+                targetVolume = 55;
+            } else if (isMicRunning && analyser) {
+                analyser.getFloatTimeDomainData(timeDomainBuffer);
+                pitch = detectPitchAndVolume(timeDomainBuffer, audioContext.sampleRate);
+            } else {
+                targetVolume = 0;
+            }
+
+            // 平滑更新頂部氣流條
+            currentVolume += (targetVolume - currentVolume) * 0.25;
+            document.getElementById('liveVolumeBar').style.width = `${currentVolume}%`;
+            document.getElementById('dbDisplay').innerText = currentVolume > 2 ? `力度 ${Math.round(currentVolume)}%` : '安靜';
+
+            // 節奏感起音 (Attack) 偵測
+            if (rhythmIsRunning) {
+                const isSoundingNow = currentVolume > 12;
+                if (isSoundingNow && wasSilentLastFrame) {
+                    rhythmTotalAttacks++;
+                    const beatInterval = 60000 / rhythmBpm;
+                    const diff = Math.min(now - lastRhythmBeatTime, beatInterval - (now - lastRhythmBeatTime));
+                    const judgeEl = document.getElementById('rhythmJudgeText');
+                    if (diff < 85) {
+                        rhythmHits++;
+                        judgeEl.innerText = `🎯 完美卡拍！(誤差 ${Math.round(diff)}ms)`;
+                        judgeEl.className = "font-bold text-emerald-400";
+                    } else {
+                        judgeEl.innerText = `⚡ 稍微偏離拍點 (${Math.round(diff)}ms)`;
+                        judgeEl.className = "font-bold text-amber-400";
+                    }
+                    document.getElementById('rhythmAccText').innerText = `節奏準確度: ${Math.round((rhythmHits / rhythmTotalAttacks) * 100)}%`;
+                }
+                wasSilentLastFrame = !isSoundingNow;
+            }
+
+            if (pitch !== -1 && pitch >= 110 && pitch <= 3500) {
+                const midiNote = Math.round(12 * (Math.log(pitch / a4Frequency) / Math.log(2))) + 69;
+                const standardFreq = a4Frequency * Math.pow(2, (midiNote - 69) / 12);
+                const cents = Math.floor(1200 * Math.log(pitch / standardFreq) / Math.log(2));
+                targetCents = cents;
+
+                const noteIdx = midiNote % 12;
+                const relIdx = (noteIdx - rootKeyOffset + 12) % 12;
+                const octave = Math.floor(midiNote / 12) - 1;
+
+                document.getElementById('mainFreqDisplay').innerText = pitch.toFixed(1);
+                document.getElementById('standardFreqRef').innerText = `目標: ${standardFreq.toFixed(1)}Hz (A4=${a4Frequency})`;
+                document.getElementById('mainNoteDisplay').innerText = `${noteStrings[noteIdx]}${octave}`;
+                document.getElementById('mainSolfegeDisplay').innerText = solfegeStrings[relIdx];
+                document.getElementById('mainJianpuDisplay').innerText = `簡譜: ${jianpuStrings[relIdx]}`;
+                document.getElementById('mainCentsDisplay').innerText = `${cents > 0 ? '+' : ''}${cents} cents`;
+
+                activeColor = Math.abs(cents) <= 8 ? '#10B981' : (Math.abs(cents) <= 20 ? '#F59E0B' : '#EF4444');
+                document.getElementById('mainNoteDisplay').style.color = activeColor;
+                document.getElementById('mainSolfegeDisplay').style.color = activeColor;
+                document.getElementById('mainCentsDisplay').style.color = activeColor;
+
+                // 永遠點亮 12 孔位圖與更新音域診斷
+                const mapInfo = highlightHarmonicaMap(midiNote);
+                updateRegisterAndAccuracyUI(midiNote, cents, mapInfo);
+
+                // 紀錄自由模式音準軌跡
+                pitchHistory.push(cents);
+                if (pitchHistory.length > 100) pitchHistory.shift();
+
+                // 更新初學者教練與樂譜闖關
+                updateBeginnerCoaches(midiNote, cents, pitch, currentVolume);
+                updateScoreChallengeLogic(midiNote, cents);
+            } else {
+                targetCents = 0;
+                activeColor = '#6b7280';
+                document.getElementById('mainNoteDisplay').style.color = activeColor;
+                document.getElementById('mainSolfegeDisplay').style.color = activeColor;
+                highlightHarmonicaMap(-1);
+            }
+
+            drawTunerGauge();
+            drawFreePitchGraph();
+            requestAnimationFrame(masterLoop);
+        }
+
+        function drawTunerGauge() {
+            tunerCtx.clearRect(0, 0, tunerCanvas.width, tunerCanvas.height);
+            const cx = tunerCanvas.width / 2, cy = tunerCanvas.height - 10, r = 98;
+            currentCents += (targetCents - currentCents) * 0.18;
+
+            // 半圓背景弧線
+            tunerCtx.beginPath();
+            tunerCtx.arc(cx, cy, r, Math.PI, 2 * Math.PI);
+            tunerCtx.lineWidth = 6;
+            tunerCtx.strokeStyle = '#1f2937';
+            tunerCtx.stroke();
+
+            // 綠色準確區間弧線 (-10c ~ +10c)
+            tunerCtx.beginPath();
+            tunerCtx.arc(cx, cy, r, Math.PI + 0.4 * Math.PI, Math.PI + 0.6 * Math.PI);
+            tunerCtx.lineWidth = 6;
+            tunerCtx.strokeStyle = 'rgba(16, 185, 129, 0.35)';
+            tunerCtx.stroke();
+
+            for (let i = -50; i <= 50; i += 10) {
+                const ang = Math.PI + ((i + 50) / 100) * Math.PI;
+                const len = i === 0 ? 14 : 8;
+                tunerCtx.beginPath();
+                tunerCtx.moveTo(cx + Math.cos(ang) * (r - len), cy + Math.sin(ang) * (r - len));
+                tunerCtx.lineTo(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r);
+                tunerCtx.lineWidth = i === 0 ? 3 : 1.5;
+                tunerCtx.strokeStyle = i === 0 ? '#10B981' : '#6b7280';
+                tunerCtx.stroke();
+            }
+
+            const clamped = Math.max(-50, Math.min(50, currentCents));
+            const pAng = Math.PI + ((clamped + 50) / 100) * Math.PI;
+            tunerCtx.beginPath();
+            tunerCtx.moveTo(cx, cy);
+            tunerCtx.lineTo(cx + Math.cos(pAng) * (r - 12), cy + Math.sin(pAng) * (r - 12));
+            tunerCtx.lineWidth = 3.5;
+            tunerCtx.lineCap = 'round';
+            tunerCtx.strokeStyle = activeColor;
+            tunerCtx.stroke();
+
+            tunerCtx.beginPath();
+            tunerCtx.arc(cx, cy, 6, 0, 2 * Math.PI);
+            tunerCtx.fillStyle = activeColor;
+            tunerCtx.fill();
+        }
+
+        function drawFreePitchGraph() {
+            freeGraphCtx.clearRect(0, 0, freeGraphCanvas.width, freeGraphCanvas.height);
+            const h = freeGraphCanvas.height, w = freeGraphCanvas.width;
+            // 0 Cent 綠線
+            freeGraphCtx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+            freeGraphCtx.lineWidth = 1.5;
+            freeGraphCtx.beginPath();
+            freeGraphCtx.moveTo(0, h / 2);
+            freeGraphCtx.lineTo(w, h / 2);
+            freeGraphCtx.stroke();
+
+            if (pitchHistory.length < 2) return;
+            freeGraphCtx.strokeStyle = '#60a5fa';
+            freeGraphCtx.lineWidth = 2;
+            freeGraphCtx.beginPath();
+            let sumDev = 0;
+            for (let i = 0; i < pitchHistory.length; i++) {
+                const c = Math.max(-45, Math.min(45, pitchHistory[i]));
+                sumDev += Math.abs(c);
+                const x = (i / 100) * w;
+                const y = (h / 2) - (c / 50) * (h / 2 - 6);
+                if (i === 0) freeGraphCtx.moveTo(x, y);
+                else freeGraphCtx.lineTo(x, y);
+            }
+            freeGraphCtx.stroke();
+            const avgDev = sumDev / pitchHistory.length;
+            const stab = Math.max(0, Math.round(100 - avgDev * 1.8));
+            document.getElementById('freeStabilityText').innerText = `長音穩定度: ${stab}%`;
+        }
+
+        // 設定 Tuner A4 基準頻率 (440Hz ~ 443Hz)
+        window.setA4Frequency = function(val) {
+            a4Frequency = Math.max(440, Math.min(443, parseFloat(val)));
+            document.getElementById('a4Slider').value = a4Frequency;
+            document.getElementById('a4Display').innerText = `${a4Frequency} Hz`;
+            document.getElementById('demoToneLabel').innerText = `試音(${a4Frequency}Hz)`;
+            document.getElementById('standardFreqRef').innerText = `標準音: -- Hz (A4=${a4Frequency})`;
+
+            // 更新 440 / 441 / 442 / 443 快速按鈕高亮狀態
+            [440, 441, 442, 443].forEach(freq => {
+                const btn = document.getElementById(`a4Btn-${freq}`);
+                if (btn) {
+                    if (a4Frequency === freq) {
+                        btn.className = "a4-preset-btn px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-600 text-white font-bold border border-emerald-400 shadow";
+                    } else {
+                        btn.className = "a4-preset-btn px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700";
+                    }
+                }
+            });
+        };
+
+        // 綁定頂部滑桿事件
+        document.getElementById('micGainSlider').addEventListener('input', (e) => {
+            micSensitivity = parseFloat(e.target.value);
+            document.getElementById('micGainDisplay').innerText = `${micSensitivity.toFixed(1)}x`;
+            if (micGainNode) micGainNode.gain.value = micSensitivity;
+        });
+        document.getElementById('a4Slider').addEventListener('input', (e) => {
+            setA4Frequency(e.target.value);
+        });
+        document.getElementById('keySelector').addEventListener('change', (e) => {
+            rootKeyOffset = parseInt(e.target.value);
+            loadScoreFromText(document.getElementById('customScoreInput').value);
+        });
+
+        // 初始化載入預設曲譜並啟動主迴圈
+        loadScoreFromText(document.getElementById('customScoreInput').value);
+        masterLoop();
+    </script>
+</body>
+</html>
